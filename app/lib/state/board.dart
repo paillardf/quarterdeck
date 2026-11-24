@@ -175,7 +175,7 @@ class Board extends _$Board implements DeckBackend {
       } else if (e.key == 'github' && e.value.access == Access.cli) {
         unawaited(_refreshGithub());
       } else if (!_s.busy.contains(e.key)) {
-        final spec = taskFor(e.key, e.value, _s.snapshots[e.key]?.at, now, open: _openAsks(e.key), projects: cfg.projects, cards: _noteTargets());
+        final spec = taskFor(e.key, e.value, _s.snapshots[e.key]?.at, now, open: _openAsks(e.key), projects: cfg.projects, cards: _noteTargets(), atlassian: cfg.providers['jira']?.options['connector']);
         if (spec != null) viaClaude.add(spec);
         if (e.key == 'mail') viaClaude.addAll([..._notesTask(e.value, now), ?inboxTask(_inboxSenders(), now)]);
       }
@@ -197,7 +197,7 @@ class Board extends _$Board implements DeckBackend {
     if (provider == 'github' && p.access == Access.cli) return _refreshGithub();
     if (_s.busy.contains(provider)) return;
     final now = DateTime.now();
-    final spec = taskFor(provider, p, _s.snapshots[provider]?.at, now, open: _openAsks(provider), projects: cfg.projects, cards: _noteTargets());
+    final spec = taskFor(provider, p, _s.snapshots[provider]?.at, now, open: _openAsks(provider), projects: cfg.projects, cards: _noteTargets(), atlassian: cfg.providers['jira']?.options['connector']);
     if (spec == null) return;
     await Future.wait([
       for (final s in [
@@ -389,7 +389,7 @@ class Board extends _$Board implements DeckBackend {
           made = await createGithubIssue(board.target, title, body);
         default:
           if (spentToday >= cfg.claude.dailyBudgetUsd) return 'Daily Claude budget is spent.';
-          final spec = ticketTask(board.target, title, body, DateTime.now());
+          final spec = ticketTask(board.target, title, body, DateTime.now(), atlassian: cfg.providers['jira']?.options['connector']);
           final done = Completer<({String ref, String url})?>();
           _tickets[spec.task.id] = done;
           await _runClaude([spec], cfg);

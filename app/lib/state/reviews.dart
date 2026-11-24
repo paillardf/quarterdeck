@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../claude/review_task.dart';
+import '../claude/tasks.dart' show atlassianTool;
 import '../claude/worker.dart';
 import '../core/models/config.dart';
 import '../core/review/diff.dart';
@@ -489,7 +490,7 @@ class Reviews extends _$Reviews implements ReviewBackend {
         'auto',
       ],
       tools: {
-        ..._tools(edit),
+        ..._tools(edit, cfg.providers['jira']?.options['connector']),
         if (skills) ...['Skill', 'Agent'],
         ...extra,
         ...cfg.claude.allowedTools,
@@ -538,14 +539,14 @@ class Reviews extends _$Reviews implements ReviewBackend {
 
   String _mcpUrl(ReviewKey key) => 'http://127.0.0.1:$mcpPort/mcp?project=${Uri.encodeQueryComponent(key.project)}&review=${Uri.encodeQueryComponent(key.id)}';
 
-  Set<String> _tools(String? edit) => {
+  Set<String> _tools(String? edit, String? atlassian) => {
     'Read',
     'Grep',
     'Glob',
     ...gitTools(readOnlyGit),
     'Bash(glab issue view:*)',
     'Bash(gh issue view:*)',
-    'mcp__claude_ai_Atlassian__getJiraIssue',
+    atlassianTool('getJiraIssue', atlassian),
     for (final t in reviewToolNames) 'mcp__deck__$t',
     if (edit != null) ...[
       // Permission paths: a leading // is an absolute path.
@@ -581,7 +582,8 @@ class Reviews extends _$Reviews implements ReviewBackend {
     final first = thread != null
         ? threadTalkPrompt(thread.id, a == null ? null : '${a.path}:${a.line}', fresh: fresh != null)
         : (fresh != null ? talkPrompt : null);
-    List<String> flags() => ['--mcp-config', mcp, '--allowedTools', _tools(fixDir).join(',')];
+    final atlassian = (await ref.read(settingsProvider.future)).providers['jira']?.options['connector'];
+    List<String> flags() => ['--mcp-config', mcp, '--allowedTools', _tools(fixDir, atlassian).join(',')];
     final cmd = [
       'claude',
       if (id != null) ...['--resume', id] else ...['--session-id', fresh!],

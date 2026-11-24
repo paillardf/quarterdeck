@@ -54,6 +54,16 @@ void main() {
     expect(plain.tools, hasLength(2));
   });
 
+  test('Jira tools follow the connector option, in the Jira, Slack and ticket tasks', () {
+    const c = 'claude_ai_Atlassian_v2';
+    final jira = taskFor('jira', const ProviderConfig(options: {'connector': c}), null, now)!;
+    expect(jira.tools, contains('mcp__claude_ai_Atlassian_v2__searchJiraIssuesUsingJql'));
+    expect(jira.tools.where((t) => t.startsWith('mcp__claude_ai_Atlassian__')), isEmpty);
+    const ps = [ProjectConfig(id: 'vpn', name: 'VPN', board: 'jira:OM', channels: ['#vpn-apps'])];
+    expect(taskFor('slack', const ProviderConfig(), null, now, projects: ps, atlassian: c)!.tools, contains('mcp__claude_ai_Atlassian_v2__searchJiraIssuesUsingJql'));
+    expect(ticketTask('OM', 'T', 'B', now, atlassian: c).tools, contains('mcp__claude_ai_Atlassian_v2__createJiraIssue'));
+  });
+
   test('slack with a workspace leaves url to Deck, which builds it from the id', () {
     final t = taskFor('slack', const ProviderConfig(options: {'workspace': 'https://acme.slack.com/'}), null, now)!.task;
     expect(t.input['workspace'], 'acme');

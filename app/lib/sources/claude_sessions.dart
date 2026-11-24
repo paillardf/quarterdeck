@@ -1,5 +1,5 @@
 // Your Claude Code sessions, read from their transcripts in
-// ~/.claude/projects/<folder>/<session id>.jsonl. 0 tokens: Claude Code already
+// <CLAUDE_CONFIG_DIR or ~/.claude>/projects/<folder>/<session id>.jsonl. 0 tokens: Claude Code already
 // writes a title for each session (ai-title), Deck only reads.
 import 'dart:convert';
 import 'dart:io';
@@ -11,14 +11,15 @@ import '../core/models/activity.dart';
 import '../core/models/config.dart';
 import '../core/models/session_progress.dart';
 import '../data/deck_home.dart';
+import 'shell_env.dart';
 
-String get _claudeDir => Platform.environment['CLAUDE_CONFIG_DIR'] ?? p.join(userHome, '.claude');
-String get claudeProjectsDir => p.join(_claudeDir, 'projects');
+/// The folder of the `claude` Deck starts, so sessions are read where they are written.
+Future<String> _claudeDir() async => (await shellEnvironment())['CLAUDE_CONFIG_DIR'] ?? p.join(userHome, '.claude');
 
 /// Claude Code writes `sessions/<pid>.json` for each running session and
 /// deletes it on exit, so no file means the session was closed.
-bool sessionOpen(String id, {String? dir}) {
-  final d = Directory(dir ?? p.join(_claudeDir, 'sessions'));
+bool sessionOpen(String id, {required String dir}) {
+  final d = Directory(dir);
   if (!d.existsSync()) return false;
   for (final f in d.listSync().whereType<File>()) {
     if (!f.path.endsWith('.json')) continue;
@@ -118,8 +119,8 @@ SessionProgress? parseProgress(Iterable<String> lines, DateTime modified, DateTi
 }
 
 /// The transcript of session [id], wherever Claude Code put it.
-File? transcriptOf(String id) {
-  final dir = Directory(claudeProjectsDir);
+Future<File?> transcriptOf(String id) async {
+  final dir = Directory(p.join(await _claudeDir(), 'projects'));
   if (!dir.existsSync()) return null;
   for (final d in dir.listSync().whereType<Directory>()) {
     final f = File(p.join(d.path, '$id.jsonl'));
@@ -130,7 +131,7 @@ File? transcriptOf(String id) {
 
 /// Where session [id] is now, from the last 256 KB of its transcript [f].
 Future<SessionProgress?> readProgress(File f, String id, DateTime now) async {
-  final open = sessionOpen(id);
+  final open = sessionOpen(id, dir: p.join(await _claudeDir(), 'sessions'));
   final raf = await f.open();
   try {
     final len = await raf.length();
@@ -147,7 +148,7 @@ Future<SessionProgress?> readProgress(File f, String id, DateTime now) async {
 Stream<SessionProgress?> watchProgress(String id) async* {
   File? f; // Found once: finding it lists every Claude project folder.
   while (true) {
-    f ??= transcriptOf(id);
+    f ??= await transcriptOf(id);
     if (f != null && !f.existsSync()) f = null;
     yield f == null ? null : await readProgress(f, id, DateTime.now());
     await Future<void>.delayed(const Duration(seconds: 5));
@@ -155,21 +156,24 @@ Stream<SessionProgress?> watchProgress(String id) async* {
 }
 
 /// Session days from transcripts changed since [since]. Runs off the UI thread.
-Future<List<SessionDay>> recentSessionDays(DateTime since) => Isolate.run(() {
-  final dir = Directory(claudeProjectsDir);
-  if (!dir.existsSync()) return <SessionDay>[];
-  final out = <SessionDay>[];
-  // Only <folder>/<session id>.jsonl: subagent transcripts sit deeper.
-  for (final f in dir.listSync().whereType<Directory>().expand((d) => d.listSync().whereType<File>())) {
-    if (!f.path.endsWith('.jsonl') || f.lastModifiedSync().isBefore(since)) continue;
-    try {
-      out.addAll(parseSessionDays(p.basenameWithoutExtension(f.path), f.readAsLinesSync()));
-    } catch (_) {
-      // A transcript being written or unreadable: next time.
+Future<List<SessionDay>> recentSessionDays(DateTime since) async {
+  final root = p.join(await _claudeDir(), 'projects');
+  return Isolate.run(() {
+    final dir = Directory(root);
+    if (!dir.existsSync()) return <SessionDay>[];
+    final out = <SessionDay>[];
+    // Only <folder>/<session id>.jsonl: subagent transcripts sit deeper.
+    for (final f in dir.listSync().whereType<Directory>().expand((d) => d.listSync().whereType<File>())) {
+      if (!f.path.endsWith('.jsonl') || f.lastModifiedSync().isBefore(since)) continue;
+      try {
+        out.addAll(parseSessionDays(p.basenameWithoutExtension(f.path), f.readAsLinesSync()));
+      } catch (_) {
+        // A transcript being written or unreadable: next time.
+      }
     }
-  }
-  return out;
-});
+    return out;
+  });
+}
 
 String _hm(DateTime d) => d.toIso8601String().substring(11, 16);
 

@@ -100,7 +100,7 @@ per small async flow. Tradeoff: codegen (`build_runner`).
 reason), todos added, your MRs merged, approvals you gave, meetings attended,
 Claude Code sessions, and lines any session adds with `deck_log_activity`.
 Sessions come from the transcripts Claude Code already writes
-(`~/.claude/projects`, with an AI title), not from a hook: 0 tokens, nothing to
+(`~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects` when your shell sets it, with an AI title), not from a hook: 0 tokens, nothing to
 install, and sessions run while Deck is closed are still found. Tradeoff: a
 session is logged once it has been idle 30 minutes, and approvals are only seen
 while Deck runs. The Activity view shows the log; its standup or review is one

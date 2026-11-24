@@ -1,6 +1,6 @@
 // A desktop app started from the Dock or a launcher does not get the PATH of
 // the user's shell, so `npx` and `claude` are not found. Ask the login shell
-// once for its environment.
+// once for its environment (PATH and CLAUDE_CONFIG_DIR).
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -47,10 +47,17 @@ Future<Map<String, String>> _read() async {
     try {
       // Interactive too (-i): PATH is often set in .zshrc, which a login
       // shell alone skips. Markers keep anything .zshrc prints out of it.
-      final r = await Process.run(shell, ['-ilc', 'printf "<<PATH>>%s<<PATH>>" "\$PATH"']).timeout(const Duration(seconds: 20));
-      final path = RegExp('<<PATH>>(.*)<<PATH>>').firstMatch(r.stdout as String)?.group(1) ?? '';
+      final r = await Process.run(shell, [
+        '-ilc',
+        'printf "<<PATH>>%s<<PATH>><<CCD>>%s<<CCD>>" "\$PATH" "\$CLAUDE_CONFIG_DIR"',
+      ]).timeout(const Duration(seconds: 20));
+      final out = r.stdout as String;
+      final path = RegExp('<<PATH>>(.*)<<PATH>>').firstMatch(out)?.group(1) ?? '';
       if (path.isEmpty) throw StateError('no PATH');
       env['PATH'] = path;
+      // Claude Code's config folder, often set in .zshrc: the claude Deck starts must use your account.
+      final ccd = RegExp('<<CCD>>(.*)<<CCD>>').firstMatch(out)?.group(1) ?? '';
+      if (ccd.isNotEmpty) env['CLAUDE_CONFIG_DIR'] = ccd;
     } catch (_) {
       // Keep the inherited PATH for now, and ask the shell again next time.
       _cached = null;

@@ -24,7 +24,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 
 HOME = os.path.expanduser('~')
-PROJECTS = os.path.join(HOME, '.claude', 'projects')
+PROJECTS = os.path.join(os.environ.get('CLAUDE_CONFIG_DIR') or os.path.join(HOME, '.claude'), 'projects')
 
 
 def deck_home(arg):

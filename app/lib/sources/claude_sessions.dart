@@ -118,9 +118,9 @@ SessionProgress? parseProgress(Iterable<String> lines, DateTime modified, DateTi
   return SessionProgress(status: status, title: title, last: last, cwd: cwd, at: modified);
 }
 
-/// The transcript of session [id], wherever Claude Code put it.
-Future<File?> transcriptOf(String id) async {
-  final dir = Directory(p.join(await _claudeDir(), 'projects'));
+/// The transcript of session [id] in Claude Code folder [claudeDir].
+File? transcriptOf(String id, String claudeDir) {
+  final dir = Directory(p.join(claudeDir, 'projects'));
   if (!dir.existsSync()) return null;
   for (final d in dir.listSync().whereType<Directory>()) {
     final f = File(p.join(d.path, '$id.jsonl'));
@@ -130,8 +130,8 @@ Future<File?> transcriptOf(String id) async {
 }
 
 /// Where session [id] is now, from the last 256 KB of its transcript [f].
-Future<SessionProgress?> readProgress(File f, String id, DateTime now) async {
-  final open = sessionOpen(id, dir: p.join(await _claudeDir(), 'sessions'));
+Future<SessionProgress?> readProgress(File f, String id, DateTime now, String claudeDir) async {
+  final open = sessionOpen(id, dir: p.join(claudeDir, 'sessions'));
   final raf = await f.open();
   try {
     final len = await raf.length();
@@ -146,11 +146,13 @@ Future<SessionProgress?> readProgress(File f, String id, DateTime now) async {
 /// Polls session [id] every 5 seconds while a card shows it. Null until
 /// Claude Code writes the transcript.
 Stream<SessionProgress?> watchProgress(String id) async* {
+  // Once per stream: while the shell fails, each lookup starts a new one.
+  final dir = await _claudeDir();
   File? f; // Found once: finding it lists every Claude project folder.
   while (true) {
-    f ??= await transcriptOf(id);
+    f ??= transcriptOf(id, dir);
     if (f != null && !f.existsSync()) f = null;
-    yield f == null ? null : await readProgress(f, id, DateTime.now());
+    yield f == null ? null : await readProgress(f, id, DateTime.now(), dir);
     await Future<void>.delayed(const Duration(seconds: 5));
   }
 }

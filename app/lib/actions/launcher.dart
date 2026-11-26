@@ -78,6 +78,12 @@ String promptFor(DeckCard c, CardAction a) {
 
 String _q(String s) => "'${s.replaceAll("'", r"'\''")}'";
 
+/// The line a terminal outside Deck runs. Its shell may not read the file
+/// that exports [claudeDir], so the line sets it: claude then writes where
+/// Deck reads.
+String terminalLine(String dir, String command, String? claudeDir) =>
+    'cd ${_q(dir)} && ${claudeDir == null ? '' : 'export CLAUDE_CONFIG_DIR=${_q(claudeDir)} && '}$command';
+
 /// Opens [command] in [dir], in a new terminal window, or a new tab of the
 /// front window when [a] asks for tabs and the terminal can do it.
 /// In Deck's panel, [restore] is the line that reopens the session after a
@@ -85,7 +91,7 @@ String _q(String s) => "'${s.replaceAll("'", r"'\''")}'";
 Future<void> openTerminal(String command, String dir, ActionsConfig a, Terminals terms, {required TermInfo info, String? restore}) async {
   if (a.terminal == 'Deck') return terms.open(info, command, dir, restore: restore);
   // Outside too, Claude's hooks tell Deck its state.
-  final line = 'cd ${_q(dir)} && ${await terms.withHooks(command)}';
+  final line = terminalLine(dir, await terms.withHooks(command), (await shellEnvironment())['CLAUDE_CONFIG_DIR']);
   if (Platform.isMacOS) {
     final s = line.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
     final app = a.terminal == 'iTerm' ? 'iTerm' : 'Terminal';
@@ -109,7 +115,8 @@ Future<void> openTerminal(String command, String dir, ActionsConfig a, Terminals
   } else if (Platform.isLinux) {
     await Process.start('x-terminal-emulator', ['-e', 'bash', '-lc', '$line; exec bash'], mode: ProcessStartMode.detached);
   } else if (Platform.isWindows) {
-    // -w 0 is the most recent window; new-tab (nt) opens in it.
+    // -w 0 is the most recent window; new-tab (nt) opens in it. No shell
+    // file here: cmd gets CLAUDE_CONFIG_DIR from the user environment, as Deck.
     await Process.start('wt.exe', [
       if (a.newTab) ...['-w', '0', 'nt'],
       '-d',

@@ -11,7 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../claude/review_task.dart';
-import '../claude/tasks.dart' show atlassianTool;
+import '../claude/tasks.dart' show atlassianTool, atlassianToolsNote;
 import '../claude/worker.dart';
 import '../core/models/config.dart';
 import '../core/review/diff.dart';
@@ -475,7 +475,7 @@ class Reviews extends _$Reviews implements ReviewBackend {
       // A session once opened in a terminal had every MCP server; resumed
       // here it gets a notice that they disconnected, and took Deck for one
       // of them.
-      prompt: '$_deckToolsNote\n\n$prompt',
+      prompt: '$_deckToolsNote ${atlassianToolsNote(cfg.providers['jira']?.options['connector'])}\n\n$prompt',
       providers: const ['review'],
       model: cfg.claude.codeModel,
       dir: _sessionDir(svc, dir),

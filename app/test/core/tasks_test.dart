@@ -59,9 +59,28 @@ void main() {
     final jira = taskFor('jira', const ProviderConfig(options: {'connector': c}), null, now)!;
     expect(jira.tools, contains('mcp__claude_ai_Atlassian_v2__searchJiraIssuesUsingJql'));
     expect(jira.tools.where((t) => t.startsWith('mcp__claude_ai_Atlassian__')), isEmpty);
-    const ps = [ProjectConfig(id: 'vpn', name: 'VPN', board: 'jira:OM', channels: ['#vpn-apps'])];
-    expect(taskFor('slack', const ProviderConfig(), null, now, projects: ps, atlassian: c)!.tools, contains('mcp__claude_ai_Atlassian_v2__searchJiraIssuesUsingJql'));
+    const ps = [
+      ProjectConfig(id: 'vpn', name: 'VPN', board: 'jira:OM', channels: ['#vpn-apps']),
+    ];
+    expect(
+      taskFor('slack', const ProviderConfig(), null, now, projects: ps, atlassian: c)!.tools,
+      contains('mcp__claude_ai_Atlassian_v2__searchJiraIssuesUsingJql'),
+    );
     expect(ticketTask('OM', 'T', 'B', now, atlassian: c).tools, contains('mcp__claude_ai_Atlassian_v2__createJiraIssue'));
+    // The prompts name the allowed server, so ToolSearch does not load the default one's tools.
+    final slack = taskFor('slack', const ProviderConfig(), null, now, projects: ps, atlassian: c)!.task;
+    for (final t in [jira.task, slack, ticketTask('OM', 'T', 'B', now, atlassian: c).task]) {
+      expect(t.instructions, contains('start with mcp__claude_ai_Atlassian_v2__ '));
+    }
+  });
+
+  test('the connector option takes a pasted tool prefix, and blank is the default', () {
+    expect(atlassianTool('getJiraIssue', ' mcp__claude_ai_Atlassian_v2__ '), 'mcp__claude_ai_Atlassian_v2__getJiraIssue');
+    expect(atlassianTool('getJiraIssue', 'claude_ai_Atlassian_v2'), 'mcp__claude_ai_Atlassian_v2__getJiraIssue');
+    expect(atlassianTool('getJiraIssue', '  '), 'mcp__claude_ai_Atlassian__getJiraIssue');
+    expect(atlassianTool('getJiraIssue'), 'mcp__claude_ai_Atlassian__getJiraIssue');
+    // A comma would add tools to --allowedTools: such a name is not used.
+    expect(atlassianTool('getJiraIssue', 'x,Bash'), 'mcp__claude_ai_Atlassian__getJiraIssue');
   });
 
   test('slack with a workspace leaves url to Deck, which builds it from the id', () {

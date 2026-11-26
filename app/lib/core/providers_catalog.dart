@@ -51,7 +51,7 @@ const providerCatalog = <ProviderInfo>[
     name: 'Jira',
     description: 'Open issues assigned to you.',
     access: [Access.claude],
-    options: {'escalationType': 'Escalation issue type', 'site': 'Site', 'connector': 'Atlassian connector, as in mcp__<name>__ tool names (default claude_ai_Atlassian)'},
+    options: {'escalationType': 'Escalation issue type', 'site': 'Site', 'connector': 'Atlassian connector name (default claude_ai_Atlassian)'},
     scoped: true,
   ),
   ProviderInfo(

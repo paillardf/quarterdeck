@@ -18,8 +18,21 @@ class TaskSpec {
 
 String _date(DateTime d) => d.toIso8601String().substring(0, 10);
 
-/// A tool of the Atlassian connector [server], its MCP name as in `mcp__<server>__` tool names.
-String atlassianTool(String name, [String? server]) => 'mcp__${server ?? 'claude_ai_Atlassian'}__$name';
+/// The `mcp__<server>__` prefix of the Atlassian connector [server]'s tools.
+/// Takes the bare name or a pasted prefix. Blank, or a name with other
+/// characters than an MCP server name has, is the default connector: the
+/// tool names are joined with commas into --allowedTools.
+String atlassianPrefix([String? server]) {
+  final s = (server ?? '').trim().replaceFirst(RegExp(r'^mcp__'), '').replaceFirst(RegExp(r'_+$'), '');
+  return 'mcp__${RegExp(r'^[\w-]+$').hasMatch(s) ? s : 'claude_ai_Atlassian'}__';
+}
+
+String atlassianTool(String name, [String? server]) => '${atlassianPrefix(server)}$name';
+
+/// Names the allowed Jira tools in a prompt: with two Atlassian connectors,
+/// ToolSearch can load the other one's, and a headless run waits on its prompt.
+String atlassianToolsNote([String? server]) =>
+    'Use only the Jira tools whose names start with ${atlassianPrefix(server)} (load them by those exact names), never another Atlassian server\'s.';
 
 /// Threads a mail run judges before it stops between two days: a run killed
 /// at the 5 minute timeout loses all its work, and about 50 threads take 3.
@@ -161,7 +174,7 @@ TaskSpec? taskFor(
           id: id,
           kind: 'fetch',
           instructions:
-              'Use the Atlassian Jira tools. Run searchJiraIssuesUsingJql with the JQL in input.jql, without the comment field. '
+              '${atlassianToolsNote(cfg.options['connector'])} Run searchJiraIssuesUsingJql with the JQL in input.jql, without the comment field. '
               'Then run it once more with the JQL in input.escalations and fields ["comment"], exactly as given, '
               'and keep only the last comment of each (skip bots). Submit one record per issue: key, summary, url ("https://<site>/browse/<key>"), '
               'status, statusCategory ("new", "indeterminate" or "done"), type, created, updated (ISO), and for escalations '
@@ -208,7 +221,7 @@ TaskSpec? taskFor(
               '${jiraBoards && channels.isNotEmpty ? 'For each team record with no about whose project has a "jira:<KEY>" board in '
                         'input.projects, run searchJiraIssuesUsingJql once with JQL project = <KEY> AND statusCategory != Done AND '
                         'text ~ "<two or three key words of the problem>" and fields ["summary"], maxResults 10; when one issue '
-                        'tracks the same problem, set about to its key. ' : ''}'
+                        'tracks the same problem, set about to its key. ${atlassianToolsNote(atlassian)} ' : ''}'
               '${recheck}Submit all records in one deck_submit call.',
           input: {
             if (open.isNotEmpty) 'open': open,
@@ -220,7 +233,9 @@ TaskSpec? taskFor(
             // "to:me" finds DMs. Slack ignores a mention in filters ("@name" or "<@id>" there returns
             // every recent message), so mentions get their own search with the id as keyword.
             // Slack's after: leaves its own day out: after:<today> finds nothing.
-            'queries': [for (final q in ['to:me', ...extra, for (final c in channels) 'in:$c']) '$q $after'],
+            'queries': [
+              for (final q in ['to:me', ...extra, for (final c in channels) 'in:$c']) '$q $after',
+            ],
             'mentions': after,
           },
         ),
@@ -438,7 +453,7 @@ TaskSpec ticketTask(String project, String title, String body, DateTime now, {St
     id: '$ticketProvider-${now.millisecondsSinceEpoch}',
     kind: 'act',
     instructions:
-        'Make one Jira issue, nothing else. Get the cloudId with getAccessibleAtlassianResources and the user\'s account id with '
+        'Make one Jira issue, nothing else. ${atlassianToolsNote(atlassian)} Get the cloudId with getAccessibleAtlassianResources and the user\'s account id with '
         'atlassianUserInfo. Call getJiraProjectIssueTypesMetadata for project input.project and pick the type named "Task" '
         '(else "Story", else the first type that is not a sub-task); without that tool, use "Task". Call createJiraIssue once with projectKey input.project, '
         'that issue type, summary input.title exactly, description input.body exactly, and assignee_account_id the user\'s account id. '

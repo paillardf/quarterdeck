@@ -29,6 +29,7 @@ import 'package:re_highlight/languages/typescript.dart';
 import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/re_highlight.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../../core/review/diff.dart';
 import '../../core/review/unified.dart';
@@ -59,6 +60,7 @@ class FileDiffView extends StatefulWidget {
     this.below = const {},
     this.onLine,
     this.selected,
+    this.reveal,
   });
 
   final DiffFile file;
@@ -90,6 +92,11 @@ class FileDiffView extends StatefulWidget {
 
   /// The lines picked for a new thread, tinted.
   final ({String side, int from, int to})? selected;
+
+  /// A thread card to show, [card] its key, under a line: the file opens,
+  /// the hunk unfolds, a large diff loads, and the page jumps to the card.
+  /// A new [seq] does it again.
+  final ({String side, int line, Key card, int seq})? reveal;
 
   @override
   State<FileDiffView> createState() => _FileDiffViewState();
@@ -169,6 +176,40 @@ class _FileDiffViewState extends State<FileDiffView> {
   List<_Item>? _items;
 
   @override
+  void initState() {
+    super.initState();
+    _open(widget.reveal);
+  }
+
+  final _list = ListController();
+
+  @override
+  void dispose() {
+    _list.dispose();
+    super.dispose();
+  }
+
+  /// Opens what hides [r]'s line (the file folded as viewed, its hunk
+  /// folded, a large diff not loaded), then once its rows are built, jumps
+  /// to its card, or to the line when the card is not there.
+  void _open(({String side, int line, Key card, int seq})? r) {
+    if (r == null) return;
+    _collapsed = false;
+    _forceLarge = true;
+    for (final (i, h) in widget.file.hunks.indexed) {
+      if (h.lines.any((l) => (r.side == 'old' ? l.oldLine : l.newLine) == r.line)) _folded.remove(i);
+    }
+    _items = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final items = _items, scroll = mounted ? Scrollable.maybeOf(context)?.widget.controller : null;
+      if (items == null || scroll == null || !_list.isAttached) return;
+      var i = items.indexWhere((it) => it is _Below && it.child.key == r.card);
+      if (i < 0) i = items.indexWhere((it) => _keysOf(it).contains((r.side, r.line)));
+      if (i >= 0) _list.jumpToItem(index: i, scrollController: scroll, alignment: .15);
+    });
+  }
+
+  @override
   void didUpdateWidget(FileDiffView old) {
     super.didUpdateWidget(old);
     if (old.viewed != widget.viewed) _collapsed = widget.viewed;
@@ -188,6 +229,7 @@ class _FileDiffViewState extends State<FileDiffView> {
         old.selected != widget.selected) {
       _items = null;
     }
+    if (old.reveal != widget.reveal) _open(widget.reveal);
   }
 
   void _change(VoidCallback f) => setState(() {
@@ -389,8 +431,14 @@ class _FileDiffViewState extends State<FileDiffView> {
           slivers: [
             PinnedHeaderSliver(child: _header(context, st)),
             if (items.isNotEmpty) ...[
-              SliverList.builder(
+              SuperSliverList.builder(
+                listController: _list,
                 itemCount: items.length,
+                extentEstimation: (i, _) => switch (i == null ? null : items[i]) {
+                  _Below() => 160,
+                  _Fold() || _Gap() || _Note() => 26,
+                  _ => 18,
+                },
                 itemBuilder: (context, i) => _row(context, st, items[i]),
                 // A thread card keeps its state (an open reply box) when rows above it come and go.
                 findChildIndexCallback: (key) {

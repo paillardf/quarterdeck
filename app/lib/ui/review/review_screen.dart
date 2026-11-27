@@ -4,7 +4,6 @@
 // with a counter. Threads sit under their line, the inbox on the right lists
 // them all; a click on a line's sign column starts one.
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart' show HitTestResult;
 import 'package:flutter/material.dart';
@@ -221,26 +220,21 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   /// new row before dropping the old one.
   final _cards = <String, BuildContext>{};
 
-  /// Scrolls to thread [t]'s card. A card whose line left the diff sits
-  /// with the whole change threads at the top. One deep in a file is not
-  /// built until its rows are on screen: go to the file, then step down
-  /// until it is.
-  Future<void> _openThread(Thread t) async {
-    BuildContext? card() => _cards[t.id];
-    if (card() == null && t.anchor != null) {
-      _jump(t.anchor!.path, duration: Duration.zero);
-      for (var i = 0; i < 40 && card() == null; i++) {
-        await WidgetsBinding.instance.endOfFrame;
-        if (card() != null || !_scroll.hasClients) break;
-        final pos = _scroll.position;
-        if (pos.pixels >= pos.maxScrollExtent) break;
-        _scroll.jumpTo(math.min(pos.pixels + pos.viewportDimension * .8, pos.maxScrollExtent));
-      }
-      // Not found (its file folded as viewed): stay on the file.
-      if (card() == null) return _jump(t.anchor!.path, duration: Duration.zero);
+  /// The last thread opened from the inbox: its file shows it.
+  ({String path, String side, int line, String id, int seq})? _reveal;
+
+  /// Puts thread [t]'s card on screen at once. A card on a line goes through
+  /// its file, which opens what hides it and jumps to it. One whose line left
+  /// the diff sits with the whole change threads at the top, always built.
+  void _openThread(Thread t) {
+    final a = t.anchor, snap = ref.read(reviewDiffProvider(_key)).value;
+    final re = a == null || snap == null ? null : reanchor(a, snap);
+    if (re != null && re.status != 'outdated') {
+      setState(() => _reveal = (path: a!.path, side: re.anchor.side, line: re.anchor.endLine, id: t.id, seq: (_reveal?.seq ?? 0) + 1));
+      return;
     }
-    final c = card();
-    if (c != null && c.mounted) await Scrollable.ensureVisible(c, duration: const Duration(milliseconds: 250), alignment: .15);
+    final c = _cards[t.id];
+    if (c != null && c.mounted) Scrollable.ensureVisible(c, alignment: .15);
   }
 
   Reviews get _reviews => ref.read(reviewsProvider.notifier);
@@ -465,7 +459,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final order = snap == null ? const <({String? chapter, DiffFile file})>[] : readingOrder(snap, r);
     final visible = [
       for (final e in order)
-        if (!tagsOf(e.file, r).any(hidden.contains)) e,
+        if (e.file.path == _reveal?.path || !tagsOf(e.file, r).any(hidden.contains)) e,
     ];
     for (final e in order) {
       _keys.putIfAbsent(e.file.path, GlobalKey.new);
@@ -620,6 +614,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                                 below: placed[e.file.path] ?? const {},
                                 onLine: (side, line, {extend = false}) => _onLine(e.file.path, side, line, extend: extend),
                                 selected: _pick?.path == e.file.path ? (side: _pick!.side, from: _pick!.from, to: _pick!.to) : null,
+                                reveal: _reveal?.path == e.file.path
+                                    ? (side: _reveal!.side, line: _reveal!.line, card: ValueKey(_reveal!.id), seq: _reveal!.seq)
+                                    : null,
                               ),
                             ),
                           ],
@@ -717,6 +714,7 @@ class _FileBlock extends ConsumerWidget {
     this.below = const {},
     this.onLine,
     this.selected,
+    this.reveal,
   });
 
   final Review review;
@@ -727,6 +725,7 @@ class _FileBlock extends ConsumerWidget {
   final Map<(String, int), List<Widget>> below;
   final void Function(String side, int line, {bool extend})? onLine;
   final ({String side, int from, int to})? selected;
+  final ({String side, int line, Key card, int seq})? reveal;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -738,6 +737,7 @@ class _FileBlock extends ConsumerWidget {
       below: below,
       onLine: onLine,
       selected: selected,
+      reveal: reveal,
       note: note?.summary,
       hunkNotes: {
         for (final h in review.hunkNotes)

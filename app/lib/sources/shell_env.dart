@@ -47,10 +47,11 @@ Future<Map<String, String>> _read() async {
     try {
       // Interactive too (-i): PATH is often set in .zshrc, which a login
       // shell alone skips. Markers keep anything .zshrc prints out of it.
-      // `${X-}`: an unset variable must not stop a shell with nounset on.
+      // printenv: an unset variable must not stop a shell with nounset on,
+      // and fish rejects `${X-}`.
       final r = await Process.run(shell, [
         '-ilc',
-        'printf "<<PATH>>%s<<PATH>><<CCD>>%s<<CCD>>" "\$PATH" "\${CLAUDE_CONFIG_DIR-}"',
+        'printf "<<PATH>>%s<<PATH>><<CCD>>%s<<CCD>>" "\$PATH" "\$(printenv CLAUDE_CONFIG_DIR)"',
       ]).timeout(const Duration(seconds: 20));
       final out = r.stdout as String;
       final path = RegExp('<<PATH>>(.*)<<PATH>>').firstMatch(out)?.group(1) ?? '';

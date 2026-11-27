@@ -23,6 +23,7 @@ import '../../state/reviews.dart';
 import '../../state/session_run.dart';
 import '../../state/settings.dart';
 import '../../state/terminals.dart';
+import '../../state/ui_memory.dart';
 import '../map/class_graph.dart';
 import '../map/sequence_view.dart';
 import '../project/project_screen.dart';
@@ -351,6 +352,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               own: r.own,
               preview: (v, s) => _reviews.previewPublish(_key, v, s),
               publish: (v, s) => _reviews.publish(_key, v, s),
+              summary: ref.read(uiMemoryProvider).summaryNote,
+              onSummary: ref.read(uiMemoryProvider).setSummaryNote,
               onBrowser: () => openLink(
                 Uri.parse(r.mr!.url),
                 ref.read(settingsProvider).value?.projects.where((p) => p.id == widget.project).firstOrNull?.browserProfile ??

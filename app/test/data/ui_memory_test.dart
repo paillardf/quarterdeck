@@ -13,6 +13,7 @@ void main() {
     expect(m.location, '/');
     expect(m.panel, isFalse);
     expect(m.places, isEmpty);
+    expect(m.summaryNote, isTrue);
   });
 
   test('a new start reads the screen, the panel and each project section', () {
@@ -31,5 +32,11 @@ void main() {
   test('an unreadable file starts on the board', () {
     final f = File('${dir.path}/ui.json')..writeAsStringSync('{not json');
     expect(UiMemory(f).location, '/');
+  });
+
+  test('the summary note choice is kept for the next start', () {
+    final f = File('${dir.path}/ui.json');
+    UiMemory(f).setSummaryNote(false);
+    expect(UiMemory(f).summaryNote, isFalse);
   });
 }

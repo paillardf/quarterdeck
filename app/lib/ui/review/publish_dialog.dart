@@ -16,7 +16,16 @@ const _verdicts = [
 ];
 
 class PublishDialog extends StatefulWidget {
-  const PublishDialog({super.key, required this.mr, required this.preview, required this.publish, this.own = false, this.onBrowser});
+  const PublishDialog({
+    super.key,
+    required this.mr,
+    required this.preview,
+    required this.publish,
+    this.own = false,
+    this.onBrowser,
+    this.summary = true,
+    this.onSummary,
+  });
 
   final MrSource mr;
 
@@ -28,13 +37,17 @@ class PublishDialog extends StatefulWidget {
   final Future<PublishPreview> Function(String verdict, bool summary) preview;
   final Future<PublishResult> Function(String verdict, bool summary) publish;
 
+  /// The summary note checkbox starts as you left it last time.
+  final bool summary;
+  final ValueChanged<bool>? onSummary;
+
   @override
   State<PublishDialog> createState() => _PublishDialogState();
 }
 
 class _PublishDialogState extends State<PublishDialog> {
   var _verdict = 'comment';
-  late var _summary = !widget.own;
+  late var _summary = !widget.own && widget.summary;
   var _source = false;
   late Future<PublishPreview> _preview = widget.preview(_verdict, _summary);
   PublishResult? _done;
@@ -124,6 +137,7 @@ class _PublishDialogState extends State<PublishDialog> {
                                   value: _summary,
                                   onChanged: (v) {
                                     _summary = v ?? true;
+                                    widget.onSummary?.call(_summary);
                                     _reload();
                                   },
                                 ),

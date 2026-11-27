@@ -46,4 +46,32 @@ void main() {
     expect(calls, ['comment true', 'approve true', 'approve false']);
     expect(t.takeException(), isNull);
   });
+
+  testWidgets('the summary note starts as last left, and a click reports the new choice', (t) async {
+    final r = sampleReview();
+    final calls = <String>[], kept = <bool>[];
+    await t.pumpWidget(
+      MaterialApp(
+        theme: deckTheme(Brightness.light),
+        home: Scaffold(
+          body: PublishDialog(
+            mr: r.mr!,
+            summary: false,
+            onSummary: kept.add,
+            preview: (v, s) async {
+              calls.add('$v $s');
+              return PublishPreview(roundNumber: 1, posting: const <Thread>[], skipped: const [], replies: 0, summary: s ? 'sum' : null);
+            },
+            publish: (_, _) => Completer<PublishResult>().future,
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(t.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+    await t.tap(find.byType(Checkbox));
+    await t.pumpAndSettle();
+    expect(calls, ['comment false', 'comment true']);
+    expect(kept, [true]);
+  });
 }

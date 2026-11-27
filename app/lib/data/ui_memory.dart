@@ -1,5 +1,6 @@
 // Where you were when Deck quit: the screen, the terminal panel open or not,
-// and the last section of each project. Kept in cache/ui.json.
+// the last section of each project, and choices a dialog keeps. Kept in
+// cache/ui.json.
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,6 +13,7 @@ class UiMemory {
       location = j['location'] as String? ?? '/';
       panel = j['panel'] as bool? ?? false;
       places.addAll((j['places'] as Map? ?? const {}).cast());
+      summaryNote = j['summaryNote'] as bool? ?? true;
     } on Object {
       // Not saved yet, or unreadable: start on the board.
     }
@@ -28,6 +30,9 @@ class UiMemory {
   /// Project id to the query of the section last open there: "tab=mrs".
   final places = <String, String>{};
 
+  /// Publish review posts the summary note: the checkbox as last left.
+  bool summaryNote = true;
+
   void setLocation(Uri u) {
     if (u.toString() == location) return;
     location = u.toString();
@@ -41,13 +46,19 @@ class UiMemory {
     _save();
   }
 
+  void setSummaryNote(bool on) {
+    if (on == summaryNote) return;
+    summaryNote = on;
+    _save();
+  }
+
   // Sync: a few bytes, and two writes in a row never interleave.
   void _save() {
     final f = _file;
     if (f == null) return;
     try {
       f.parent.createSync(recursive: true);
-      f.writeAsStringSync(jsonEncode({'location': location, 'panel': panel, 'places': places}));
+      f.writeAsStringSync(jsonEncode({'location': location, 'panel': panel, 'places': places, 'summaryNote': summaryNote}));
     } on FileSystemException {
       // Not worth an error: the next start opens on the board.
     }

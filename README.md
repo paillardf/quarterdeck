@@ -84,8 +84,9 @@ You only need what your providers use. The connector providers expect the
 claude.ai connectors by their default names (`claude_ai_Slack`,
 `claude_ai_Gmail`, `claude_ai_Google_Calendar`, `claude_ai_Atlassian`): a Slack
 MCP server you configured yourself under another name is not picked up. For an
-Atlassian connector under another name, set its name in the Jira provider's
-options; Slack's Jira search, Make ticket and review sessions use it too.
+Atlassian connector under another name, set its name as `/mcp` shows it in the
+Jira provider's options; Slack's Jira search, Make ticket and review sessions
+use it too.
 Mail is Gmail only (meeting notes come from Gemini notes mail).
 
 ## Set up

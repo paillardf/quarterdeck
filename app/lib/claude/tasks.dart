@@ -19,12 +19,13 @@ class TaskSpec {
 String _date(DateTime d) => d.toIso8601String().substring(0, 10);
 
 /// The `mcp__<server>__` prefix of the Atlassian connector [server]'s tools.
-/// Takes the bare name or a pasted prefix. Blank, or a name with other
-/// characters than an MCP server name has, is the default connector: the
-/// tool names are joined with commas into --allowedTools.
+/// Takes the name as `/mcp` shows it, the server name or a pasted prefix;
+/// blank is the default connector. Other characters than letters, digits,
+/// `_` and `-` become one `_`, as in the tool names: the names are joined
+/// with commas into --allowedTools.
 String atlassianPrefix([String? server]) {
-  final s = (server ?? '').trim().replaceFirst(RegExp(r'^mcp__'), '').replaceFirst(RegExp(r'_+$'), '');
-  return 'mcp__${RegExp(r'^[\w-]+$').hasMatch(s) ? s : 'claude_ai_Atlassian'}__';
+  final s = (server ?? '').trim().replaceFirst(RegExp(r'^mcp__'), '').replaceAll(RegExp(r'[^\w-]+'), '_').replaceAll(RegExp(r'^_+|_+$'), '');
+  return 'mcp__${s.isEmpty ? 'claude_ai_Atlassian' : s}__';
 }
 
 String atlassianTool(String name, [String? server]) => '${atlassianPrefix(server)}$name';

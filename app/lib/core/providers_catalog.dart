@@ -51,7 +51,7 @@ const providerCatalog = <ProviderInfo>[
     name: 'Jira',
     description: 'Open issues assigned to you.',
     access: [Access.claude],
-    options: {'escalationType': 'Escalation issue type', 'site': 'Site', 'connector': 'Atlassian connector name (default claude_ai_Atlassian)'},
+    options: {'escalationType': 'Escalation issue type', 'site': 'Site', 'connector': 'Atlassian connector, as /mcp shows it (default claude.ai Atlassian)'},
     scoped: true,
   ),
   ProviderInfo(
@@ -59,7 +59,10 @@ const providerCatalog = <ProviderInfo>[
     name: 'Slack',
     description: 'DMs and mentions that ask something of you. Claude judges each one.',
     access: [Access.claude],
-    options: {'queries': 'Extra search filters, like in:#channel (comma separated; DMs and mentions are already searched)', 'workspace': 'Workspace, as in <workspace>.slack.com (for message links)'},
+    options: {
+      'queries': 'Extra search filters, like in:#channel (comma separated; DMs and mentions are already searched)',
+      'workspace': 'Workspace, as in <workspace>.slack.com (for message links)',
+    },
   ),
   ProviderInfo(
     id: 'calendar',

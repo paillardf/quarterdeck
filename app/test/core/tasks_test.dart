@@ -79,8 +79,15 @@ void main() {
     expect(atlassianTool('getJiraIssue', 'claude_ai_Atlassian_v2'), 'mcp__claude_ai_Atlassian_v2__getJiraIssue');
     expect(atlassianTool('getJiraIssue', '  '), 'mcp__claude_ai_Atlassian__getJiraIssue');
     expect(atlassianTool('getJiraIssue'), 'mcp__claude_ai_Atlassian__getJiraIssue');
-    // A comma would add tools to --allowedTools: such a name is not used.
-    expect(atlassianTool('getJiraIssue', 'x,Bash'), 'mcp__claude_ai_Atlassian__getJiraIssue');
+    // The name as /mcp shows it maps to its tool prefix.
+    expect(atlassianTool('getJiraIssue', 'claude.ai Atlassian (v2 custom connector)'), 'mcp__claude_ai_Atlassian_v2_custom_connector__getJiraIssue');
+    expect(atlassianTool('getJiraIssue', 'claude.ai Acme Jira (2)'), 'mcp__claude_ai_Acme_Jira_2__getJiraIssue');
+    // A comma would add tools to --allowedTools: it never reaches the name.
+    expect(atlassianTool('getJiraIssue', 'x,Bash'), 'mcp__x_Bash__getJiraIssue');
+    for (final odd in ['a,b c', '()', ' mcp__ ', 'Jira; rm -rf', 'x\ny']) {
+      expect(atlassianTool('getJiraIssue', odd), matches(RegExp(r'^mcp__[\w-]+__getJiraIssue$')));
+    }
+    expect(atlassianTool('getJiraIssue', '()'), 'mcp__claude_ai_Atlassian__getJiraIssue');
   });
 
   test('slack with a workspace leaves url to Deck, which builds it from the id', () {
